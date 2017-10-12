@@ -3,7 +3,7 @@ from pykalman import KalmanFilter
 from statsmodels.tsa.stattools import acf
 from scipy import stats
 from scipy.optimize import minimize
-
+import matplotlib.pyplot as plt
 
 def online_kf(x, cov, tm=1, om=1, burnout=40):
     """
@@ -47,7 +47,6 @@ def plot_kalman(x, s, cov, tm=1, om=1, kf_function=offline_kf):
         x: measured signal
         s: base signal (without noise, the one that is to be recovered)
     """
-    print cov
     xk = kf_function(x, cov, tm=tm, om=om)
 
     x = x[-len(xk):].copy()
@@ -76,7 +75,7 @@ def plot_kalman(x, s, cov, tm=1, om=1, kf_function=offline_kf):
 
 def estimate_kalman_covariance(x):
     """
-    estimates 1d single state kalman covariance by choosing the covariance that
+    estimates 1d single state kalman covariance by choosing the one that
     minimizes the autocorrelation of the residuals
     :param x:
     :return: the covariance
@@ -90,7 +89,7 @@ def estimate_kalman_covariance(x):
 def optimal_kalman_covariance(x, residuals):
     """
     computes covariance so that the residuals of the kalman filter output
-    as closest to the residuals passed as argument
+    are closest to the residuals passed as argument
     :param x:
     :param residuals:
     :return:
