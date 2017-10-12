@@ -11,7 +11,7 @@ def online_kf(x, cov, tm=1, om=1, burnout=40):
     :param tm: transition coef (the float of the 1x1 matrix)
     :param om: observation coef (the float of the 1x1 matrix)
     :param burnout: number of previous samples at each sample
-    :return: the filtered signal
+    :return: the filtered signal (with length = len(x)-burnout)
     """
     kf = KalmanFilter(transition_matrices=[[tm]], transition_covariance=[[cov]], observation_matrices=[[om]])
     f = []
@@ -72,3 +72,32 @@ def plot_kalman(x, s, cov, tm=1, om=1, kf_function=offline_kf):
     plt.subplot2grid((1, 5), (0, 4))
     plt.plot(ar[1:])
     plt.title("autocorrelation of residuals")
+
+def estimate_kalman_covariance(x):
+    """
+    estimates 1d single state kalman covariance by choosing the covariance that
+    minimizes the autocorrelation of the residuals
+    :param x:
+    :return: the covariance
+    """
+    from scipy.optimize import minimize
+
+    def cost(cv):
+        xk = offline_kf(x, cv)
+        r = np.linalg.norm(acf(x-xk,100)[1:])
+        return r
+    return minimize(cost, np.random.random(), method="BFGS", tol=1e-2).x[0]
+
+def optimal_kalman_covariance(x, residuals):
+    """
+    computes covariance so that the residuals of the kalman filter output
+    as closest to the residuals passed as argument
+    :param x:
+    :param residuals:
+    :return:
+    """
+    def cost(cv):
+        xk = offline_kf(x, cv)
+        r = np.mean( np.abs(x-xk - residuals))
+        return r
+    return minimize(cost, np.random.random(), method="BFGS", tol=1e-2).x[0]
