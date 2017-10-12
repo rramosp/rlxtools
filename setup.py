@@ -1,7 +1,9 @@
 from setuptools import setup
+exec(open('rlxtools/__version__').read())
+
 
 setup(name='rlxtools',
-      version='0.1',
+      version=__version__,
       description='rlx tools',
       url='http://github.com/rramosp/rlxtools',
       author='rlx',
