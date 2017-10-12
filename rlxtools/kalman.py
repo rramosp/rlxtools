@@ -2,6 +2,7 @@ import numpy as np
 from pykalman import KalmanFilter
 from statsmodels.tsa.stattools import acf
 from scipy import stats
+from scipy.optimize import minimize
 
 
 def online_kf(x, cov, tm=1, om=1, burnout=40):
@@ -80,8 +81,6 @@ def estimate_kalman_covariance(x):
     :param x:
     :return: the covariance
     """
-    from scipy.optimize import minimize
-
     def cost(cv):
         xk = offline_kf(x, cv)
         r = np.linalg.norm(acf(x-xk,100)[1:])
