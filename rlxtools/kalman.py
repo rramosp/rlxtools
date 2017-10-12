@@ -1,5 +1,7 @@
 import numpy as np
 from pykalman import KalmanFilter
+from statsmodels.tsa.stattools import acf
+from scipy import stats
 
 
 def online_kf(x, cov, tm=1, om=1, burnout=40):
@@ -44,8 +46,6 @@ def plot_kalman(x, s, cov, tm=1, om=1, kf_function=offline_kf):
         x: measured signal
         s: base signal (without noise, the one that is to be recovered)
     """
-    from statsmodels.tsa.stattools import acf
-    from scipy import stats
     print cov
     xk = kf_function(x, cov, tm=tm, om=om)
 
