@@ -1,1 +1,2 @@
-include docs/example.ipynb
+recursive-include rlxtools/docs *
+recursive-include rlxtools/data *
