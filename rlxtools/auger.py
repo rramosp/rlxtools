@@ -16,6 +16,9 @@ import rlxtools.ml         as rml
 import rlxtools.timeseries as rts
 import rlxtools.kalman     as rk
 
+import warnings
+warnings.filterwarnings(action="ignore", module="scipy", message="^internal gelsd")
+
 def load_Ik_data(fname, show_dates=True):
     print "loading file"
     d = pd.read_csv(fname)
@@ -111,19 +114,25 @@ def plot_sdgroups(vfree, vfixed, legend=True, figsize=(12,8)):
     return fig
 
 def timealign_and_resample(dd, experiment_starts, sampling_period, verbose=True,
-                           smooth=True, kalman=True):
+                           smooth_windows=None, kalman=True):
+    import numbers
+
     sds = np.unique(dd.station_id.values).astype(int)
     dfree = dd[(dd.index > experiment_starts)]
     dfree = {int(i): dfree[dfree.station_id == i].resample(sampling_period).first().replace('nan', np.nan).fillna(method="pad") \
              for i in np.unique(dfree.station_id)}
 
-    if smooth:
-        print "smoothing error GPS signal"
-        for k in tqdm(dfree.values()):
-            smooth_cols = ["dX", "dY", "dZ"]
-            for c in smooth_cols:
-                k["smooth:" + c] = k[c].rolling(10).mean()
-            k.dropna(inplace=True)
+    if smooth_windows is not None:
+        if isinstance(smooth_windows, numbers.Number):
+            smooth_windows = [smooth_windows]
+
+        for wsize in smooth_windows:
+            print "smoothing error GPS signal with wsize=",wsize
+            for k in tqdm(dfree.values()):
+                smooth_cols = ["dX", "dY", "dZ"]
+                for c in smooth_cols:
+                    k["smooth-%d:"%wsize + c] = k[c].rolling(wsize).mean()
+                k.dropna(inplace=True)
 
     if kalman:
         print "kalman on GPS signal"
@@ -153,19 +162,21 @@ def augment_data_to_reference_stations(dfree, vfree, ref_sds, target_sds):
     xvfree = {i.name: i[["X", "Y", "Z"]].values for _, i in vfree.iterrows()}
 
     # add distance and angle from GPS position to actual position in reference stations
-    r = {target_sd: pd.DataFrame([ru.flatten([[np.linalg.norm(gps_pos - xvfree[ref_sd]),
+    r = {target_sd: pd.DataFrame([ru.flatten([[xvfree[ref_sd][0]-gps_pos[0],
+                                               xvfree[ref_sd][0]-gps_pos[1],
+                                               np.linalg.norm(gps_pos - xvfree[ref_sd]),
                                             rm.angle_vector(gps_pos[:2][::-1]-xvfree[ref_sd][:2][::-1])] \
                                            for ref_sd in ref_sds]) \
                                   for gps_pos in dfree[target_sd][["gps_X", "gps_Y", "gps_Z"]].values],
                                  index=dfree[target_sd].index,
-                                 columns=ru.flatten([["L_" + str(k), "A_" + str(k)] for k in ref_sds])
+                                 columns=ru.flatten([["GDISTX_"+str(k), "GDISTY_"+str(k), "L_" + str(k), "A_" + str(k)] for k in ref_sds])
                                  ).join(dfree[target_sd]) \
          for target_sd in tqdm(target_sds)}
 
     # add observed GPS error at reference positions
     for target_sd in r.keys():
         for ref_sd in ref_sds:
-            cols = ["dX", "dY", "dZ"] + [i for i in dfree[ref_sd].columns if "smooth" in i]
+            cols = ["dX", "dY", "dZ"] + [i for i in dfree[ref_sd].columns if "smooth" in i or "kalm" in i]
             r[target_sd] = r[target_sd].join(dfree[ref_sd][cols], rsuffix="_" + str(ref_sd))
 
 
@@ -187,7 +198,8 @@ def gps_prediction_experiment(estimator,
                             use_distances_to_ref=True,
                             use_angles_to_ref=True,
                             use_gpspos_target = True,
-                            use_ref_kalman = False,
+                            use_ref_kalman = True,
+                            use_XYdistances_to_ref=True,
                             show_cols = False,
                             target_col = "dX",
                             verbose = 50,
@@ -201,13 +213,14 @@ def gps_prediction_experiment(estimator,
             (use_ref_kalman or "kalm" not in i) and \
             (use_ref_rawgpserr or (not i.startswith("dX_") and not i.startswith("dY_") and not i.startswith("dZ_"))) and \
             (use_distances_to_ref or not i.startswith("L_")) and \
+            (use_XYdistances_to_ref or not i.startswith("GDIST")) and \
             (use_angles_to_ref or not i.startswith("A_")) and \
             ("_" in i) and (int(i.split("_")[1]) in ref_sds)]
 
     train_data = edata[[i in train_sds for i in edata.station_id]][cols]
     val_data   = edata[[i in val_sds for i in edata.station_id]][cols]
 
-    source_cols = [i for i in val_data.columns if i not in ["dX", "dY", "dZ", "station_id", "timestamp"]]
+    source_cols = [i for i in val_data.columns if i not in [target_col, "dX", "dY", "dZ", "station_id", "timestamp"]]
 
     tr_X, tr_y = train_data[source_cols], train_data[target_col]
     val_X, val_y = val_data[source_cols], val_data[target_col]
@@ -222,24 +235,28 @@ def gps_prediction_experiment(estimator,
                                n_jobs=n_jobs, verbose=verbose)
     return r
 
+experiment_paramset = ["use_ref_smooth", "use_ref_rawgpserr", "use_distances_to_ref","use_angles_to_ref",
+                       "use_gpspos_target", "use_ref_kalman","use_XYdistances_to_ref"]
 
 def gps_prediction_lcurve(estimator, edata, ref_sds, train_target_sds, val_target_sds,
                       use_ref_smooth, use_ref_rawgpserr,
                       use_distances_to_ref,use_angles_to_ref,
-                      use_gpspos_target, use_ref_kalman,
+                      use_gpspos_target, use_ref_kalman, use_XYdistances_to_ref,
                       train_periods, test_period, target_col = "dX",
                       n_jobs=-1, show_cols=False):
     rc = []
 
     print "processing", len(train_periods), "train periods"
 
-    for train_period in train_periods:
+    for i, train_period in enumerate(train_periods):
         r = gps_prediction_experiment(estimator, edata, ref_sds, train_target_sds, val_target_sds,
                                     use_ref_smooth=use_ref_smooth, use_ref_rawgpserr=use_ref_rawgpserr,
                                     use_distances_to_ref=use_distances_to_ref, use_angles_to_ref=use_angles_to_ref,
                                     use_gpspos_target=use_gpspos_target, use_ref_kalman=use_ref_kalman,
+                                    use_XYdistances_to_ref=use_XYdistances_to_ref,
                                     target_col=target_col,
-                                    train_period=train_period, test_period=test_period, n_jobs=-1, show_cols=show_cols)
+                                    train_period=train_period, test_period=test_period, n_jobs=-1,
+                                    show_cols=show_cols if i==0 else False)
         rc.append(r)
 
     return rc
@@ -271,3 +288,4 @@ def get_baseline(edata, col):
         r[i1,i2] =  np.mean(np.abs(s1[col] - s2[col]))
     r[r==0]=np.nan
     return pd.DataFrame(r, columns=sds, index=sds)
+

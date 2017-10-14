@@ -46,6 +46,7 @@ def timedate_3way_crossval_runner(estimator, tr_X, val_X, tr_y, val_y, tr_dates,
     vXval = val_X[(val_X.index >= ts_dates[0]) & (val_X.index < ts_dates[1])]
     vyval = val_y[(val_X.index >= ts_dates[0]) & (val_X.index < ts_dates[1])]
 
+
     estimator.fit(vXtr.values, vytr.values)
     tr_score = scorer(estimator, vXtr.values, vytr.values)
     ts_score = scorer(estimator, vXts.values, vyts.values)
