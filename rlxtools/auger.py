@@ -289,3 +289,51 @@ def get_baseline(edata, col):
     r[r==0]=np.nan
     return pd.DataFrame(r, columns=sds, index=sds)
 
+
+def explore_sds_combinations(estimator, edata, feature_set, test_period="2d", train_period="5d",
+                             n_ref_sds=2, max_runs=None):
+    import os.path
+
+    fname = "data/" + estimator.__class__.__name__ + "_" + str(
+        feature_set) + "_" + train_period + "_" + test_period + ".csv"
+    print "results at ", fname
+    params = {i: i in feature_set for i in experiment_paramset}
+    sds = np.unique(edata.station_id)
+
+    total = len([i for i in itertools.combinations(sds[1:], n_ref_sds)])
+    rcs = []
+
+    pbar = tqdm(total=np.min([total * len(sds), np.inf if max_runs is None else max_runs]))
+    count = 1
+    for sd in sds:
+
+        p = [i for i in sds if i != sd]
+        val_sds = [sd]
+
+        for ref_sds in [i for i in itertools.combinations(p, 2)]:
+
+            # check if result already produced in file
+            results = pd.read_csv(fname) if os.path.isfile(fname) else None
+            if results is None or count not in results["count"].values:
+
+                train_sds = [i for i in sds if i != sd and not i in ref_sds]
+
+                r = gps_prediction_experiment(estimator, edata, ref_sds, train_sds, val_sds,
+                                                    test_period=test_period, train_period=train_period,
+                                                    n_jobs=-1, show_cols=False, verbose=0, **params)
+
+                r = [[count, sd, ref_sds, train_sds, r.mean().val, r.mean().test, r.mean().train]]
+                r = pd.DataFrame(r, columns=["count", "val_sd", "ref_sds", "train_sds", "val_score", "test_score",
+                                             "train_score"])
+
+                results = r if results is None else pd.concat((results, r))
+                results.to_csv(fname, index=False)
+            else:
+                print "skipping", count
+            count += 1
+            pbar.update()
+            if max_runs is not None and count > max_runs:
+                break
+
+        if max_runs is not None and count > max_runs:
+            break
