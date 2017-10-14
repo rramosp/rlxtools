@@ -320,7 +320,7 @@ def explore_sds_combinations(estimator, edata, feature_set, test_period="2d", tr
 
                 r = gps_prediction_experiment(estimator, edata, ref_sds, train_sds, val_sds,
                                                     test_period=test_period, train_period=train_period,
-                                                    n_jobs=-1, show_cols=False, verbose=0, n_jobs=n_jobs, **params)
+                                                    show_cols=False, verbose=0, n_jobs=n_jobs, **params)
 
                 r = [[count, sd, ref_sds, train_sds, r.mean().val, r.mean().test, r.mean().train]]
                 r = pd.DataFrame(r, columns=["count", "val_sd", "ref_sds", "train_sds", "val_score", "test_score",
