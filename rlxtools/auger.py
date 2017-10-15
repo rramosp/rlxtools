@@ -310,7 +310,7 @@ def explore_sds_combinations(estimator, edata, feature_set, test_period="2d", tr
         p = [i for i in sds if i != sd]
         val_sds = [sd]
 
-        for ref_sds in [i for i in itertools.combinations(p, 2)]:
+        for ref_sds in [i for i in itertools.combinations(p, n_ref_sds)]:
 
             # check if result already produced in file
             results = pd.read_csv(fname) if os.path.isfile(fname) else None
