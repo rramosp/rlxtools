@@ -295,7 +295,7 @@ def explore_sds_combinations(estimator, edata, feature_set, test_period="2d", tr
     import os.path
 
     fname = "data/" + estimator.__class__.__name__ + "_" + str(
-        feature_set) + "_" + train_period + "_" + test_period + ".csv"
+        feature_set) + "_" + train_period + "_" + test_period + "_nrefs_%d"%n_ref_sds + ".csv"
     print "results at ", fname
     params = {i: i in feature_set for i in experiment_paramset}
     sds = np.unique(edata.station_id)
