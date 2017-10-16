@@ -4,17 +4,17 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import itertools
 import os
-running_in_notebook = "jupyter" in os.environ['_']
-if running_in_notebook:
-    from tqdm import tqdm_notebook as tqdm
-else:
-    from tqdm import tqdm
-
 import rlxtools.utils      as ru
 import rlxtools.math       as rm
 import rlxtools.ml         as rml
 import rlxtools.timeseries as rts
 import rlxtools.kalman     as rk
+
+if ru.running_in_notebook():
+    from tqdm import tqdm_notebook as tqdm
+else:
+    from tqdm import tqdm
+
 
 import warnings
 warnings.filterwarnings(action="ignore", module="scipy", message="^internal gelsd")

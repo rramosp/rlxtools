@@ -5,6 +5,18 @@ from datetime import *
 from joblib import Parallel
 import sys
 
+
+def running_in_notebook():
+    try:
+        cfg = get_ipython().config
+        if cfg['IPKernelApp']['parent_appname'] == 'ipython-notebook':
+            return True
+        else:
+            return False
+    except NameError:
+        return False
+
+
 class mParallel(Parallel):
     def _print(self, msg, msg_args):
         if self.verbose>10:
