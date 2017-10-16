@@ -222,7 +222,7 @@ def gps_prediction_experiment(estimator,
 
     source_cols = [i for i in val_data.columns if i not in [target_col, "dX", "dY", "dZ", "station_id", "timestamp"]]
 
-    tr_X, tr_y = train_data[source_cols], train_data[target_col]
+    tr_X, tr_y   = train_data[source_cols], train_data[target_col]
     val_X, val_y = val_data[source_cols], val_data[target_col]
 
     if show_cols:
